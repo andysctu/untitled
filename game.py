@@ -1,4 +1,5 @@
 import pyglet 
+import physicalobject
 from pyglet.window import key
 
 window = pyglet.window.Window()
@@ -21,6 +22,15 @@ def on_key_press(symbol, modifiers):
     elif symbol == key.ENTER:
         print('The enter key was pressed.')
 
-window.push_handlers(pyglet.window.event.WindowEventLogger())
 
+
+seth = physicalobject.PhysicalObject()
+game_objects = [seth]
+
+def update(dt):
+	for obj in game_objects:
+		obj.update(dt)
+
+window.push_handlers(pyglet.window.event.WindowEventLogger())
+pyglet.clock.schedule_interval(update, 1/120.0)
 pyglet.app.run()
