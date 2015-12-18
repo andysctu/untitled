@@ -1,137 +1,47 @@
-"""
-client.py - AsyncIO Server using StreamReader and StreamWriter
-
-This will create 200 client connections to a server running server.py
-
-It will handshake and run similar to this:
-
-Server: HELLO
-Client: WORLD
-
-Server: READY
-Client: one
-Server: ECHO 1: one
-
-...
-
-Client: six
-Server: ECHO 6: six
-
-Client: BYE
-Server: BYE
-
-"""
-
 import asyncio
-import logging
+import pyglet
+import json
+from constants import ADDR, RENDER_WAIT
 
-log = logging.getLogger(__name__)
-
-clients = {}  # task -> (reader, writer)
-
-
-def make_connection(host, port):
-
-    task = asyncio.Task(handle_client(host, port))
-
-    clients[task] = (host, port)
-
-    def client_done(task):
-        del clients[task]
-        log.info("Client Task Finished")
-        if len(clients) == 0:
-            log.info("clients is empty, stopping loop.")
-            loop = asyncio.get_event_loop()
-            loop.stop()
-
-    log.info("New Client Task")
-    task.add_done_callback(client_done)
+LOOP = asyncio.get_event_loop()
+DATA_RECEIVED = None
+TRANSPORT = None
 
 
-@asyncio.coroutine
-def handle_client(host, port):
-    log.info("Connecting to %s %d", host, port)
-    client_reader, client_writer = yield from asyncio.open_connection(host,
-                                                                      port)
-    log.info("Connected to %s %d", host, port)
+def run_pyglet():
+    pyglet.clock.tick()
+    for window in pyglet.app.windows:
+        window.switch_to()
+        window.dispatch_events()
+        window.dispatch_event('on_draw')
+        window.flip()
+    LOOP.call_later(RENDER_WAIT, run_pyglet)
+
+
+class EchoClient(asyncio.DatagramProtocol):
+    def connection_made(self, transport):
+        print('connection made')
+        global TRANSPORT
+        TRANSPORT = transport
+        run_pyglet()
+
+    def datagram_received(self, data, addr):
+        DATA_RECEIVED(json.loads(data.decode()))
+
+    def connection_lost(self, exc):
+        print('server closed the connection')
+        LOOP.stop()
+
+
+def start_client(data_received_callback=None):
+    global DATA_RECEIVED
+    DATA_RECEIVED = data_received_callback
+    coro = LOOP.create_datagram_endpoint(EchoClient, remote_addr=ADDR)
+    LOOP.run_until_complete(coro)
     try:
-        # looking for a hello
-        # give client a chance to respond, timeout after 10 seconds
-        data = yield from asyncio.wait_for(client_reader.readline(),
-                                           timeout=10.0)
-
-        if data is None:
-            log.warning("Expected HELLO, received None")
-            return
-
-        sdata = data.decode().rstrip().upper()
-        log.info("Received %s", sdata)
-        if sdata != "HELLO":
-            log.warning("Expected HELLO, received '%s'", sdata)
-            return
-
-        # send back a WORLD
-        client_writer.write("WORLD\n".encode())
-
-        # wait for a READY
-        data = yield from asyncio.wait_for(client_reader.readline(),
-                                           timeout=10.0)
-
-        if data is None:
-            log.warning("Expected READY, received None")
-            return
-
-        sdata = data.decode().rstrip().upper()
-        if sdata != "READY":
-            log.warning("Expected READY, received '%s'", sdata)
-            return
-
-        echostrings = ['one', 'two', 'three', 'four', 'five', 'six']
-
-        for echostring in echostrings:
-            # send each string and get a reply, it should be an echo back
-            client_writer.write(("%s\n" % echostring).encode())
-            data = yield from asyncio.wait_for(client_reader.readline(),
-                                               timeout=10.0)
-            if data is None:
-                log.warning("Echo received None")
-                return
-
-            sdata = data.decode().rstrip()
-            log.info(sdata)
-
-        # send BYE to disconnect gracefully
-        client_writer.write("BYE\n".encode())
-
-        # receive BYE confirmation
-        data = yield from asyncio.wait_for(client_reader.readline(),
-                                           timeout=10.0)
-
-        sdata = data.decode().rstrip().upper()
-        log.info("Received '%s'" % sdata)
+        LOOP.run_forever()
+        ##blocked
+    except KeyboardInterrupt:
+        print('exit')
     finally:
-        log.info("Disconnecting from %s %d", host, port)
-        client_writer.close()
-        log.info("Disconnected from %s %d", host, port)
-
-
-def main():
-    log.info("MAIN begin")
-    loop = asyncio.get_event_loop()
-    for x in range(200):
-        make_connection('localhost', 2991)
-    loop.run_forever()
-    log.info("MAIN end")
-
-if __name__ == '__main__':
-    log = logging.getLogger("")
-    formatter = logging.Formatter("%(asctime)s %(levelname)s " +
-                                  "[%(module)s:%(lineno)d] %(message)s")
-    # setup console logging
-    log.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
-    ch.setFormatter(formatter)
-    log.addHandler(ch)
-    main()
+        LOOP.close()
