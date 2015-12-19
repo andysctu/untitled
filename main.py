@@ -47,6 +47,10 @@ def on_key_release(symbol, modifiers):
     elif symbol == key.RIGHT:
         KEY_STATES['RIGHT'] = False
 
+@window.event
+def on_draw():
+    for player in PLAYERS.values():
+        player.draw()
 
 def data_received(data):
     name = data['NAME']

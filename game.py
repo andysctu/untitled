@@ -4,10 +4,12 @@ import assets
 from pyglet.window import key
 
 window = pyglet.window.Window()
+
 toggle = True
 @window.event
 def on_draw():
     window.clear()
+    global toggle
     if toggle:
     	seth.draw()
     else:
@@ -29,15 +31,16 @@ seth2 = pyglet.sprite.Sprite(img=assets.player_image2, x=400, y=300)
 
 
 # seth = physicalobject.PhysicalObject()
-# game_objects = [seth]
+game_objects = [seth]
 
-# def update(dt):
-# 	for obj in game_objects:
-# 		obj.update(dt)
+def update(dt):
+	for obj in game_objects:
+		obj.update(dt)
 
 # window.push_handlers(pyglet.window.event.WindowEventLogger())
-# pyglet.clock.schedule_interval(update, 1/120.0)
+
 
 
 if __name__ == '__main__':
+	pyglet.clock.schedule_interval(update, 1/60.0)
 	pyglet.app.run()

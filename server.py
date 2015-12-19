@@ -25,13 +25,15 @@ def send_game_state():
     for player in CLIENTS.values():
         broadcast(json.dumps(player).encode())
 
-
-def update():
+# Calculate new positions of players based on current velocity/position
+def update_players():
+    # for player in CLIENTS.values():
+        
     return
 
 
 def check_step():
-    update()
+    update_players()
     send_game_state()
     LOOP.call_later(NETWORK_WAIT, callback=check_step)
 
